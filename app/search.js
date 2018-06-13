@@ -9,6 +9,10 @@ class Search {
     }
 
     this.stopWordFilter = lunr.generateStopWordFilter([
+      'personal',
+      'hotspot',
+      'connection',
+      'connectlon',
       'a',
       'able',
       'about',

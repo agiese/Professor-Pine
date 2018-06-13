@@ -1100,9 +1100,15 @@ class Raid {
   }
 
   static generateChannelName(raid) {
+    let exraid_prefix='ex raid';
+    if (!!raid.end_time) {
+        let endDt=new Date(raid.end_time);
+        exraid_prefix=(endDt.getMonth()+1).toString()+' '+(endDt.getDate()).toString();
+    }
+
     const nonCharCleaner = new RegExp(/[^\w]/, 'g'),
       pokemon_name = (raid.is_exclusive ?
-        'ex raid' :
+        exraid_prefix :
         !!raid.pokemon.name ?
           raid.pokemon.name :
           `tier ${raid.pokemon.tier}`)

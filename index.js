@@ -18,12 +18,14 @@ const private_settings = require('./data/private-settings'),
   Client = new Commando.Client({
     owner: private_settings.owner,
     restWsBridgeTimeout: 10000,
-    restTimeOffset: 1000
+    restTimeOffset: 1000,
+    fetchAllMembers: true
   }),
   NotifyClient = new Discord.Client({
     owner: private_settings.owner,
     restWsBridgeTimeout: 10000,
-    restTimeOffset: 1000
+    restTimeOffset: 1000,
+    fetchAllMembers: true
   }),
   DB = require('./app/db.js'),
   NodeCleanup = require('node-cleanup'),
