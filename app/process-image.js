@@ -1044,7 +1044,7 @@ class ImageProcessing {
         x: image.bitmap.width / 5.1,
         y: image.bitmap.height / 26,
         width: image.bitmap.width - (image.bitmap.width / 2.55),
-        height: image.bitmap.height / 13
+        height: image.bitmap.height / 13 + 15
       },
       phone_time_crop = {
         x: image.bitmap.width / 2.5,
