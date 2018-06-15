@@ -181,7 +181,7 @@ class ImageProcessing {
           return null;
         }
 
-        return this.getRaidData(id, message, new_image);
+        return this.getRaidData(id, message, new_image, {"width": image.bitmap.width, "height": image.bitmap.height});
       })
       .then(data => {
         // write original image as a reference
@@ -1035,13 +1035,22 @@ class ImageProcessing {
     });
   }
 
-  async getRaidData(id, message, image) {
+// added passing the original image's width & height over, to allow for custom adjustments to the
+// regions to find gym name, raid boss, etc.
+  async getRaidData(id, message, image, origRes) {
+    let xGymOffset=0;
+
+    // ipad produces screenshots where Pine needs to look little further to the left to capture the Gym Name
+    if (origRes.width==1440 && origRes.height==1920) {
+        xGymOffset=-50;
+    }
+
     // some phones are really wierd? and have way too much height to them, and need this check to push cropping around a bit
     const check_phone_color = Jimp.intToRGBA(image.getPixelColor(0, 85)),
 
       // location of cropping / preprocessing for different pieces of information (based on % width & % height for scalability purposes)
       gym_location = {
-        x: image.bitmap.width / 5.1,
+        x: image.bitmap.width / 5.1 + xGymOffset,
         y: image.bitmap.height / 26,
         width: image.bitmap.width - (image.bitmap.width / 2.55),
         height: image.bitmap.height / 13 + 15
