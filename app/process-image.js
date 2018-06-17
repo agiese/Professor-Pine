@@ -300,7 +300,7 @@ class ImageProcessing {
       blue = this.bitmap.data[idx + 2],
       alpha = this.bitmap.data[idx + 3];
 
-    if (red >= 170 && green >= 170 && blue >= 170) {
+    if (red >= 190 && green >= 190 && blue >= 190) {
       this.bitmap.data[idx + 0] = 255;
       this.bitmap.data[idx + 1] = 255;
       this.bitmap.data[idx + 2] = 255;
@@ -1047,13 +1047,13 @@ class ImageProcessing {
 
     // some phones are really wierd? and have way too much height to them, and need this check to push cropping around a bit
     const check_phone_color = Jimp.intToRGBA(image.getPixelColor(0, 85)),
-
+      check_phone_color2 = Jimp.intToRGBA(image.getPixelColor(0, 30)),
       // location of cropping / preprocessing for different pieces of information (based on % width & % height for scalability purposes)
       gym_location = {
         x: image.bitmap.width / 5.1 + xGymOffset,
         y: image.bitmap.height / 26,
         width: image.bitmap.width - (image.bitmap.width / 2.55),
-        height: image.bitmap.height / 13 + 15
+        height: image.bitmap.height / 13
       },
       phone_time_crop = {
         x: image.bitmap.width / 2.5,
@@ -1081,11 +1081,16 @@ class ImageProcessing {
       };
     let promises = [];
 
+    // check if iphone image has hotspot enabled, and if so adjust where to search for gym name
+    if ((check_phone_color.r >= 30 && check_phone_color.r <= 70 && check_phone_color.g >= 120 && check_phone_color.g <= 140 && check_phone_color.b >= 220) &&
+        (check_phone_color2.r >= 30 && check_phone_color2.r <= 70 && check_phone_color2.g >= 120 && check_phone_color2.g <= 140 && check_phone_color2.b >= 220)) {
+      gym_location.y += 30;
+    } else {
     // special case for some kind of odd vertical phone
-    if (check_phone_color.r <= 20 && check_phone_color.g <= 20 && check_phone_color.b <= 20) {
-      gym_location.y += 100;
+      if (check_phone_color.r <= 20 && check_phone_color.g <= 20 && check_phone_color.b <= 20) {
+        gym_location.y += 100;
+      }
     }
-
     // GYM NAME
     const gym = await this.getGymName(id, message, image, gym_location);
 
