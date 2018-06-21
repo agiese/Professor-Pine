@@ -77,9 +77,10 @@ class ImageProcessing {
 
   initialize() {
     Helper.client.on('message', message => {
+
       const image_url = (message.attachments.size) ?
         message.attachments.first().url :
-        '';
+        (message.content.substring(0,39)=='https://cdn.discordapp.com/attachments/' && message.content.indexOf(' ') < 0 ? message.content : '');
 
       // attempt to process first attachment/image if it exists (maybe some day will go through all the attachments...)
       if (image_url && image_url.search(/jpg|jpeg|png/)) {
@@ -150,9 +151,17 @@ class ImageProcessing {
           }
         });
 
+        let orangeCheck={"x": new_image.bitmap.width / 1.19, "y": (new_image.bitmap.height / 1.72) - 80};
+
+        // ipad produces screenshots where Pine needs to look in a different spot to identify orange raid timer
+        if (image.bitmap.width==1440 && image.bitmap.height==1920) {
+            orangeCheck.x=1090;
+            orangeCheck.y=1135;
+        }
+
         if (!raid) {
           // check for orange "time remaining" pixels
-          new_image.scan(new_image.bitmap.width / 1.19, (new_image.bitmap.height / 1.72) - 80, 1, 160, function (x, y, idx) {
+          new_image.scan(orangeCheck.x, orangeCheck.y, 1, 160, function (x, y, idx) {
             if (raid) {
               return;
             }
@@ -192,7 +201,7 @@ class ImageProcessing {
         }
 
         if (data) {
-          this.createRaid(message, data);
+          this.createRaid(message, data, url);
         } else {
           // this means no gym was found what-so-ever so either processing was really messed up or it's not a raid screenshot
           this.removeReaction(message);
@@ -1052,7 +1061,7 @@ class ImageProcessing {
       gym_location = {
         x: image.bitmap.width / 5.1 + xGymOffset,
         y: image.bitmap.height / 26,
-        width: image.bitmap.width - (image.bitmap.width / 2.55),
+        width: image.bitmap.width - (image.bitmap.width / 2.55)+30,
         height: image.bitmap.height / 13
       },
       phone_time_crop = {
@@ -1141,12 +1150,13 @@ class ImageProcessing {
         .catch(err => log.error(err)))
   }
 
-  createRaid(message, data) {
+  createRaid(message, data, image_url) {
     const TimeType = Helper.client.registry.types.get('time'),
       message_time = moment(message.createdAt),
       earliest_accepted_time = message_time.clone()
         .subtract(settings.standard_raid_incubate_duration, 'minutes')
         .subtract(settings.standard_raid_hatched_duration, 'minutes');
+
 
     let gym_id = data.gym,
       pokemon = data.pokemon,
@@ -1225,7 +1235,8 @@ class ImageProcessing {
               await channel
                 .send(Raid.getIncompleteScreenshotMessage(raid), {
                   files: [
-                    message.attachments.first().url
+//                    message.attachments.first().url
+                    image_url
                   ]
                 })
                 .then(message => Raid.setIncompleteScreenshotMessage(channel.id, message))
