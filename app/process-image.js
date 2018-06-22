@@ -1061,7 +1061,7 @@ class ImageProcessing {
       gym_location = {
         x: image.bitmap.width / 5.1 + xGymOffset,
         y: image.bitmap.height / 26,
-        width: image.bitmap.width - (image.bitmap.width / 2.55)+30,
+        width: 0.65 * image.bitmap.width,
         height: image.bitmap.height / 13
       },
       phone_time_crop = {
