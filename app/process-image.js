@@ -1057,11 +1057,12 @@ class ImageProcessing {
     // some phones are really wierd? and have way too much height to them, and need this check to push cropping around a bit
     const check_phone_color = Jimp.intToRGBA(image.getPixelColor(0, 85)),
       check_phone_color2 = Jimp.intToRGBA(image.getPixelColor(0, 30)),
+      check_phone_color3 = Jimp.intToRGBA(image.getPixelColor(0, 100)),
       // location of cropping / preprocessing for different pieces of information (based on % width & % height for scalability purposes)
       gym_location = {
         x: image.bitmap.width / 5.1 + xGymOffset,
         y: image.bitmap.height / 26,
-        width: 0.65 * image.bitmap.width,
+        width: 0.72 * image.bitmap.width,
         height: image.bitmap.height / 13
       },
       phone_time_crop = {
@@ -1090,16 +1091,23 @@ class ImageProcessing {
       };
     let promises = [];
 
-    // check if iphone image has hotspot enabled, and if so adjust where to search for gym name
-    if ((check_phone_color.r >= 30 && check_phone_color.r <= 70 && check_phone_color.g >= 120 && check_phone_color.g <= 140 && check_phone_color.b >= 220) &&
-        (check_phone_color2.r >= 30 && check_phone_color2.r <= 70 && check_phone_color2.g >= 120 && check_phone_color2.g <= 140 && check_phone_color2.b >= 220)) {
-      gym_location.y += 30;
-    } else {
-    // special case for some kind of odd vertical phone
-      if (check_phone_color.r <= 20 && check_phone_color.g <= 20 && check_phone_color.b <= 20) {
-        gym_location.y += 100;
+    const iphone_header_colors=[{"r": 36, "g": 132, "b": 232},  // personal hotspot color
+                                {"r": 66, "g": 130, "b": 225},  // personal hotspot color
+                                {"r": 118, "g": 214, "b": 114}];  // background phone & facetime color
+
+    for (let i=0;i<iphone_header_colors.length;i++) {
+      if ((Math.abs(check_phone_color.r - iphone_header_colors[i].r) < 5 &&  Math.abs(check_phone_color.g - iphone_header_colors[i].g) < 5 && Math.abs(check_phone_color.b - iphone_header_colors[i].b) < 5) &&
+          (Math.abs(check_phone_color2.r - iphone_header_colors[i].r) < 5 &&  Math.abs(check_phone_color2.g - iphone_header_colors[i].g) < 5 && Math.abs(check_phone_color2.b - iphone_header_colors[i].b) < 5) &&
+          (Math.abs(check_phone_color3.r - iphone_header_colors[i].r) < 5 &&  Math.abs(check_phone_color3.g - iphone_header_colors[i].g) < 5 && Math.abs(check_phone_color3.b - iphone_header_colors[i].b) < 5)) {
+        gym_location.y += 30;
       }
     }
+
+    // special case for some kind of odd vertical phone
+    if (check_phone_color.r <= 20 && check_phone_color.g <= 20 && check_phone_color.b <= 20) {
+      gym_location.y += 100;
+    }
+
     // GYM NAME
     const gym = await this.getGymName(id, message, image, gym_location);
 
