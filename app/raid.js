@@ -554,6 +554,9 @@ class Raid {
 
     let end_time;
 
+    if (raid.pokemon.duration) {
+      end_time = hatch_time + (raid.pokemon.duration * 60 * 1000);
+    }
     if (raid.is_exclusive) {
       end_time = hatch_time + (settings.exclusive_raid_hatched_duration * 60 * 1000);
     } else {
@@ -616,7 +619,9 @@ class Raid {
 
     let hatch_time;
 
-    if (raid.is_exclusive) {
+    if (raid.pokemon.duration) {
+      hatch_time = end_time - (raid.pokemon.duration * 60 * 1000);
+    } else if (raid.is_exclusive) {
       hatch_time = end_time - (settings.exclusive_raid_hatched_duration * 60 * 1000);
     } else {
       hatch_time = end_time - (settings.standard_raid_hatched_duration * 60 * 1000);
@@ -670,10 +675,13 @@ class Raid {
         .catch(err => log.error(err));
     }
 
-    raid.last_possible_time = Math.max(raid.creation_time + (raid.is_exclusive ?
-      (settings.exclusive_raid_incubate_duration + settings.exclusive_raid_hatched_duration) * 60 * 1000 :
-      (settings.standard_raid_incubate_duration + settings.standard_raid_hatched_duration) * 60 * 1000),
+    raid.last_possible_time = Math.max(raid.creation_time + (pokemon.duration ?
+      (pokemon.incubation + pokemon.duration) * 60 * 1000 : raid.is_exclusive ?
+        (settings.exclusive_raid_incubate_duration + settings.exclusive_raid_hatched_duration) * 60 * 1000 :
+        (settings.standard_raid_incubate_duration + settings.standard_raid_hatched_duration) * 60 * 1000),
       raid.last_possible_time);
+
+    this.setRaidEndTime(channel_id, raid.end_time);
 
     this.persistRaid(raid);
 
@@ -895,8 +903,8 @@ class Raid {
     const pokemon = !!raid.pokemon.name ?
       raid.pokemon.name.charAt(0).toUpperCase() + raid.pokemon.name.slice(1) :
       '????',
-      pokemon_url = !!raid.pokemon.name ?
-        `${private_settings.pokemon_url_base}${pokemon}-Pokemon-Go.png` :
+      pokemon_url = !!raid.pokemon.url ?
+        raid.pokemon.url :
         '',
       pokemon_cp_string = raid.pokemon.boss_cp > 0 ?
         `${raid.pokemon.min_base_cp}-${raid.pokemon.max_base_cp} / ` +
