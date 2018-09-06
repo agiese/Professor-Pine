@@ -919,9 +919,16 @@ class Raid {
 
       now = moment(),
 
-      calendar_format = {
-        sameDay: 'LT',
-        sameElse: 'l LT'
+      calendar_format = raid.is_exclusive ? {
+        nextDay: 'dddd, MMM D [at] LT z',
+        nextWeek: 'dddd, MMM D [at] LT z',
+        sameDay: 'dddd, MMM D [at] LT z',
+        sameElse: 'dddd, MMM D [at] LT z'
+      } : {
+        nextDay: '[Tomorrow at] LT z',
+        nextWeek: 'dddd [at] LT z',
+        sameDay: 'LT z',
+        sameElse: 'l LT z'
       },
 
       report_member = await this.getMember(raid.channel_id, raid.created_by_id),
