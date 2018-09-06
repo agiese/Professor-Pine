@@ -104,7 +104,7 @@ class Raid {
 
   async getMember(channel_id, member_id) {
     const channel = await this.getChannel(channel_id),
-      member = channel.guild.members.get(member_id);
+      member = channel.guild.members.fetch(member_id);
 
     if (!!member) {
       return Promise.resolve(member);

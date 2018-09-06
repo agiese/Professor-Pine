@@ -120,14 +120,59 @@ class ImageProcessing {
         }
         id = uuidv1();
 
+		let image_properties = {"width": image.bitmap.width,
+                                "height": image.bitmap.height,
+                                "url": url,
+                                "hatched": false,
+                                "phone": "",
+                                "hotbar": false};
+
         // resize to some standard size to help tesseract
         new_image = image.scaleToFit(1440, 2560, Jimp.RESIZE_HERMITE);
 
+        // some phones are really wierd? and have way too much height to them, and need this check to push cropping around a bit
+        const check_phone_color = Jimp.intToRGBA(new_image.getPixelColor(0, 85)),
+          check_phone_color2 = Jimp.intToRGBA(new_image.getPixelColor(0, 30)),
+          check_phone_color3 = Jimp.intToRGBA(new_image.getPixelColor(0, 100));
+
+        const iphone_header_colors=[{"r": 36, "g": 132, "b": 232},  // personal hotspot color
+                                    {"r": 66, "g": 130, "b": 225},  // personal hotspot color
+                                    {"r": 118, "g": 214, "b": 114},  // background phone & facetime color
+                                    {"r": 0, "g": 122, "b": 255},  // background app gps usage
+                                    {"r": 52, "g": 120, "b": 247}];  // background app gps usage
+
+        for (let i=0;i<iphone_header_colors.length;i++) {
+          if ((Math.abs(check_phone_color.r - iphone_header_colors[i].r) < 5 &&  Math.abs(check_phone_color.g - iphone_header_colors[i].g) < 5 && Math.abs(check_phone_color.b - iphone_header_colors[i].b) < 5) &&
+              (Math.abs(check_phone_color2.r - iphone_header_colors[i].r) < 5 &&  Math.abs(check_phone_color2.g - iphone_header_colors[i].g) < 5 && Math.abs(check_phone_color2.b - iphone_header_colors[i].b) < 5) &&
+              (Math.abs(check_phone_color3.r - iphone_header_colors[i].r) < 5 &&  Math.abs(check_phone_color3.g - iphone_header_colors[i].g) < 5 && Math.abs(check_phone_color3.b - iphone_header_colors[i].b) < 5)) {
+            image_properties.hotbar=true;
+          }
+        }
+
+        if (image_properties.width / image_properties.height == 0.75) {
+          image_properties.phone='ipad';
+        } else if (check_phone_color.r <= 20 && check_phone_color.g <= 20 && check_phone_color.b <= 20) {
+          // special case for some kind of odd vertical phone
+          image_properties.phone='odd vertical';
+        }
+
         // determine if image is a raid image or not
         let raid = false;
+        let is_hatched = false;
 
-        // check for pink "time remaining" pixels
-        new_image.scan(new_image.bitmap.width / 2, (new_image.bitmap.height / 4.34) - 80, 1, 160, function (x, y, idx) {
+        let orangeCheck={};
+
+        // ipad produces screenshots where Pine needs to look in a different spot to identify orange raid timer
+        if (image_properties.phone=='ipad') {
+            orangeCheck.x=1090;
+            orangeCheck.y=1135;
+        } else {
+            orangeCheck.x=new_image.bitmap.width / 1.19;
+            orangeCheck.y=(new_image.bitmap.height / 1.72) - 80;
+        }
+
+        // check for orange "time remaining" pixels
+        new_image.scan(orangeCheck.x, orangeCheck.y, 1, 160, function (x, y, idx) {
           if (raid) {
             return;
           }
@@ -136,9 +181,10 @@ class ImageProcessing {
             green = this.bitmap.data[idx + 1],
             blue = this.bitmap.data[idx + 2];
 
-          // pink = { r: 250, g: 135, b: 149 }
-          if (red <= 255 && red >= 227 && green <= 148 && green >= 122 && blue <= 162 && blue >= 136) {
+          // orange = { r: 255, g: 120, b: 55 }
+          if (red <= 255 && red >= 232 && green <= 133 && green >= 107 && blue <= 68 && blue >= 42) {
             raid = true;
+            image_properties.hatched = true;
             return;
           }
 
@@ -146,22 +192,16 @@ class ImageProcessing {
           green = ImageProcessing.convertToFullRange(green);
           blue = ImageProcessing.convertToFullRange(blue);
 
-          if (red <= 255 && red >= 227 && green <= 148 && green >= 122 && blue <= 162 && blue >= 136) {
+          if (red <= 255 && red >= 232 && green <= 133 && green >= 107 && blue <= 68 && blue >= 42) {
             raid = true;
+            is_hatched = true;
           }
         });
 
-        let orangeCheck={"x": new_image.bitmap.width / 1.19, "y": (new_image.bitmap.height / 1.72) - 80};
-
-        // ipad produces screenshots where Pine needs to look in a different spot to identify orange raid timer
-        if (image.bitmap.width==1440 && image.bitmap.height==1920) {
-            orangeCheck.x=1090;
-            orangeCheck.y=1135;
-        }
 
         if (!raid) {
-          // check for orange "time remaining" pixels
-          new_image.scan(orangeCheck.x, orangeCheck.y, 1, 160, function (x, y, idx) {
+          // check for pink "time remaining" pixels
+          new_image.scan(new_image.bitmap.width / 2, (new_image.bitmap.height / 4.34) - 80, 1, 160, function (x, y, idx) {
             if (raid) {
               return;
             }
@@ -170,8 +210,8 @@ class ImageProcessing {
               green = this.bitmap.data[idx + 1],
               blue = this.bitmap.data[idx + 2];
 
-            // orange = { r: 255, g: 120, b: 55 }
-            if (red <= 255 && red >= 232 && green <= 133 && green >= 107 && blue <= 68 && blue >= 42) {
+            // pink = { r: 250, g: 135, b: 149 }
+            if (red <= 255 && red >= 227 && green <= 148 && green >= 122 && blue <= 162 && blue >= 136) {
               raid = true;
               return;
             }
@@ -180,7 +220,7 @@ class ImageProcessing {
             green = ImageProcessing.convertToFullRange(green);
             blue = ImageProcessing.convertToFullRange(blue);
 
-            if (red <= 255 && red >= 232 && green <= 133 && green >= 107 && blue <= 68 && blue >= 42) {
+            if (red <= 255 && red >= 227 && green <= 148 && green >= 122 && blue <= 162 && blue >= 136) {
               raid = true;
             }
           });
@@ -190,7 +230,7 @@ class ImageProcessing {
           return null;
         }
 
-        return this.getRaidData(id, message, new_image, {"width": image.bitmap.width, "height": image.bitmap.height});
+        return this.getRaidData(id, message, new_image, image_properties);
       })
       .then(data => {
         // write original image as a reference
@@ -621,10 +661,10 @@ class ImageProcessing {
     });
   }
 
-  async getRaidTimeRemaining(id, message, image, region) {
+  async getRaidTimeRemaining(id, message, image, region, image_properties) {
     const debug_image_path1 = path.join(__dirname, this.image_path, `${id}-time-remaining-a.png`),
       debug_image_path2 = path.join(__dirname, this.image_path, `${id}-time-remaining-b.png`),
-      values = await this.getOCRRaidTimeRemaining(id, message, image, region);
+      values = await this.getOCRRaidTimeRemaining(id, message, image, region, image_properties);
 
     // something has gone wrong if no info was matched, save image for later analysis
     if (debug_flag || (!values.text && log.getLevel() === log.levels.DEBUG)) {
@@ -639,7 +679,7 @@ class ImageProcessing {
     return {time_remaining: values.text, egg: values.egg};
   }
 
-  getOCRRaidTimeRemaining(id, message, image, region) {
+  getOCRRaidTimeRemaining(id, message, image, region, image_properties) {
     return new Promise((resolve, reject) => {
       const region1 = {
           x: region.width - (region.width / 3.4),
@@ -656,82 +696,84 @@ class ImageProcessing {
 
       let promises = [];
 
-      // check the middle-right portion of the screen for the time remaining (pokemon)
-      promises.push(new Promise((resolve, reject) => {
-        const new_image = image.clone()
-          .crop(region1.x, region1.y, region1.width, region1.height)
-          .scan(0, 0, region1.width, region1.height, this.filterPureWhiteContent)
-          .getBuffer(Jimp.MIME_PNG, (err, image) => {
-            if (err) {
-              reject(err);
-            }
+      if (image_properties.hatched) {
+        // check the middle-right portion of the screen for the time remaining (pokemon)
+        promises.push(new Promise((resolve, reject) => {
+          const new_image = image.clone()
+            .crop(region1.x, region1.y, region1.width, region1.height)
+            .scan(0, 0, region1.width, region1.height, this.filterPureWhiteContent)
+            .getBuffer(Jimp.MIME_PNG, (err, image) => {
+              if (err) {
+                reject(err);
+              }
 
-            this.time_tesseract.recognize(image, this.time_remain_tesseract_options)
-              .catch(err => reject(err))
-              .then(result => {
-                const confident_words = this.tesseractGetConfidentSequences(result, true),
-                  match = confident_words.length > 0 ?
-                    confident_words[0].match(/(\d{1,2}:\d{2}:\d{2})/) :
-                    '';
-                if (match && match.length) {
-                  resolve({
-                    image: new_image,
-                    text: match[1],
-                    result
-                  });
-                } else {
-                  resolve({
-                    image: new_image,
-                    result
-                  });
-                }
-              });
-          });
-      }));
+              this.time_tesseract.recognize(image, this.time_remain_tesseract_options)
+                .catch(err => reject(err))
+                .then(result => {
+                  const confident_words = this.tesseractGetConfidentSequences(result, true),
+                    match = confident_words.length > 0 ?
+                      confident_words[0].match(/(\d{1,2}:\d{2}:\d{2})/) :
+                      '';
+                  if (match && match.length) {
+                    resolve({
+                      image: new_image,
+                      text: match[1],
+                      result
+                    });
+                  } else {
+                    resolve({
+                      image: new_image,
+                      result
+                    });
+                  }
+                });
+            });
+        }));
+      } else {
+        // check the top-middle portion of the screen for the time remaining (egg)
+        promises.push(new Promise((resolve, reject) => {
+          const new_image = image.clone()
+            .crop(region2.x, region2.y, region2.width, region2.height)
+            .scan(0, 0, region2.width, region2.height, this.filterPureWhiteContent)
+            .getBuffer(Jimp.MIME_PNG, (err, image) => {
+              if (err) {
+                reject(err);
+              }
 
-      // check the top-middle portion of the screen for the time remaining (egg)
-      promises.push(new Promise((resolve, reject) => {
-        const new_image = image.clone()
-          .crop(region2.x, region2.y, region2.width, region2.height)
-          .scan(0, 0, region2.width, region2.height, this.filterPureWhiteContent)
-          .getBuffer(Jimp.MIME_PNG, (err, image) => {
-            if (err) {
-              reject(err);
-            }
-
-            this.time_tesseract.recognize(image, this.time_remain_tesseract_options)
-              .catch(err => reject(err))
-              .then(result => {
-                const confident_words = this.tesseractGetConfidentSequences(result, true),
-                  match = confident_words.length > 0 ?
-                    confident_words[0].match(/(\d{1,2}:\d{2}:\d{2})/) :
-                    '';
-                if (match && match.length) {
-                  resolve({
-                    image: new_image,
-                    text: match[1],
-                    result
-                  });
-                } else {
-                  resolve({
-                    image: new_image,
-                    result
-                  });
-                }
-              });
-          });
-      }));
+              this.time_tesseract.recognize(image, this.time_remain_tesseract_options)
+                .catch(err => reject(err))
+                .then(result => {
+                  const confident_words = this.tesseractGetConfidentSequences(result, true),
+                    match = confident_words.length > 0 ?
+                      confident_words[0].match(/(\d{1,2}:\d{2}:\d{2})/) :
+                      '';
+                  if (match && match.length) {
+                    resolve({
+                      image: new_image,
+                      text: match[1],
+                      result
+                    });
+                  } else {
+                    resolve({
+                      image: new_image,
+                      result
+                    });
+                  }
+                });
+            });
+        }));
+      }
 
       // pass along collected data once all promises have resolved
       Promise.all(promises)
         .then(values => {
           resolve({
-            egg: !!values[1].text,
+            egg: !image_properties.hatched,
             image1: values[0].image,
-            image2: values[1].image,
-            text: values[0].text || values[1].text,
+            image2: values[0].image,
+            text: values[0].text,
             result1: values[0].result,
-            result2: values[1].result
+            result2: values[0].result
           });
         })
         .catch(err => {
@@ -1046,20 +1088,16 @@ class ImageProcessing {
 
 // added passing the original image's width & height over, to allow for custom adjustments to the
 // regions to find gym name, raid boss, etc.
-  async getRaidData(id, message, image, origRes) {
+  async getRaidData(id, message, image, image_properties) {
     let xGymOffset=0;
 
     // ipad produces screenshots where Pine needs to look little further to the left to capture the Gym Name
-    if (origRes.width==1440 && origRes.height==1920) {
+    if (image_properties.phone=='ipad') {
         xGymOffset=-50;
     }
 
-    // some phones are really wierd? and have way too much height to them, and need this check to push cropping around a bit
-    const check_phone_color = Jimp.intToRGBA(image.getPixelColor(0, 85)),
-      check_phone_color2 = Jimp.intToRGBA(image.getPixelColor(0, 30)),
-      check_phone_color3 = Jimp.intToRGBA(image.getPixelColor(0, 100)),
-      // location of cropping / preprocessing for different pieces of information (based on % width & % height for scalability purposes)
-      gym_location = {
+    // location of cropping / preprocessing for different pieces of information (based on % width & % height for scalability purposes)
+    const gym_location = {
         x: image.bitmap.width / 5.1 + xGymOffset,
         y: image.bitmap.height / 26,
         width: 0.72 * image.bitmap.width,
@@ -1091,20 +1129,9 @@ class ImageProcessing {
       };
     let promises = [];
 
-    const iphone_header_colors=[{"r": 36, "g": 132, "b": 232},  // personal hotspot color
-                                {"r": 66, "g": 130, "b": 225},  // personal hotspot color
-                                {"r": 118, "g": 214, "b": 114}];  // background phone & facetime color
-
-    for (let i=0;i<iphone_header_colors.length;i++) {
-      if ((Math.abs(check_phone_color.r - iphone_header_colors[i].r) < 5 &&  Math.abs(check_phone_color.g - iphone_header_colors[i].g) < 5 && Math.abs(check_phone_color.b - iphone_header_colors[i].b) < 5) &&
-          (Math.abs(check_phone_color2.r - iphone_header_colors[i].r) < 5 &&  Math.abs(check_phone_color2.g - iphone_header_colors[i].g) < 5 && Math.abs(check_phone_color2.b - iphone_header_colors[i].b) < 5) &&
-          (Math.abs(check_phone_color3.r - iphone_header_colors[i].r) < 5 &&  Math.abs(check_phone_color3.g - iphone_header_colors[i].g) < 5 && Math.abs(check_phone_color3.b - iphone_header_colors[i].b) < 5)) {
-        gym_location.y += 30;
-      }
-    }
-
-    // special case for some kind of odd vertical phone
-    if (check_phone_color.r <= 20 && check_phone_color.g <= 20 && check_phone_color.b <= 20) {
+    if (image_properties.hotbar==true) {
+      gym_location.y += 30;
+    } else if (image_properties.phone=='odd vertical') {
       gym_location.y += 100;
     }
 
@@ -1119,7 +1146,7 @@ class ImageProcessing {
     promises.push(this.getPhoneTime(id, message, image, phone_time_crop));
 
     // TIME REMAINING
-    const {time_remaining, egg} = await this.getRaidTimeRemaining(id, message, image, all_crop);
+    const {time_remaining, egg} = await this.getRaidTimeRemaining(id, message, image, all_crop, image_properties);
 
     // NOTE:  This seems like a bug in await syntax, but I can't use shorthands for settings values
     //        when they're await within an IF function like this... really stupid.
